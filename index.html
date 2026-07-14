@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Umetech Mileage Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3250;
+    --accent: #4f6ef7; --accent-soft: rgba(79,110,247,0.12);
+    --green: #22c55e; --green-soft: rgba(34,197,94,0.12);
+    --text: #e8eaf6; --muted: #7b82a8; --danger: #ef4444;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 16px 80px; }
+  header { width: 100%; max-width: 720px; margin-bottom: 36px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .logo-label { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .tagline { font-size: 22px; font-weight: 600; color: var(--text); margin-top: 6px; }
+  .user-info { font-size: 12px; color: var(--muted); text-align: right; }
+  .user-info span { display: block; color: var(--text); font-weight: 500; margin-bottom: 4px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: 100%; max-width: 720px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.07em; }
+  input, select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; padding: 10px 14px; outline: none; transition: border-color 0.15s; appearance: none; -webkit-appearance: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237b82a8' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .swap-btn { display: flex; justify-content: center; margin: 4px 0 8px; }
+  .swap-btn button { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px 16px; transition: all 0.15s; }
+  .swap-btn button:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { width: 100%; background: var(--accent); border: none; border-radius: 8px; color: #fff; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; padding: 13px; margin-top: 4px; transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 9px 16px; transition: border-color 0.15s; }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 16px; margin-left: auto; transition: all 0.15s; }
+  .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+  .btn-signout { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px; padding: 5px 12px; transition: all 0.15s; }
+  .btn-signout:hover { border-color: var(--danger); color: var(--danger); }
+  .add-btn { width: 100%; background: var(--green-soft); border: 1px solid rgba(34,197,94,0.25); border-radius: 8px; color: var(--green); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 11px; margin-top: 16px; transition: opacity 0.15s; }
+  .add-btn:hover { opacity: 0.85; }
+
+  /* Auth screen */
+  #authScreen { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 400px; }
+  #authScreen .card { max-width: 400px; }
+  .auth-toggle { text-align: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .auth-toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .auth-toggle a:hover { text-decoration: underline; }
+
+  /* App screen */
+  #appScreen { display: none; width: 100%; align-items: center; flex-direction: column; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface2); border-radius: 8px; padding: 4px; }
+  .tab { flex: 1; background: none; border: none; border-radius: 6px; color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 8px; transition: all 0.15s; }
+  .tab.active { background: var(--surface); color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Result */
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: 100%; max-width: 720px; margin-bottom: 16px; display: none; }
+  .result-card.visible { display: block; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .result-item { background: var(--surface2); border-radius: 8px; padding: 16px; }
+  .result-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .result-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600; color: var(--text); }
+  .result-value.green { color: var(--green); }
+  .result-route { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 20px; flex-wrap: wrap; }
+  .route-point { background: var(--surface2); border-radius: 6px; padding: 5px 10px; color: var(--text); font-weight: 500; }
+  .route-arrow { color: var(--accent); font-size: 16px; }
+
+  /* Log */
+  .log-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid rgba(46,50,80,0.5); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 12px; color: var(--text); }
+  tbody td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  tbody td.green { color: var(--green); font-family: 'JetBrains Mono', monospace; }
+  .empty-log { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 0; }
+  .log-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .totals-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 12px; background: var(--accent-soft); border-radius: 8px; margin-top: 12px; font-size: 13px; }
+  .totals-row span { color: var(--muted); }
+  .totals-row strong { font-family: 'JetBrains Mono', monospace; font-size: 15px; }
+  .totals-row .total-reimb { color: var(--green); }
+  .delete-row { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s; }
+  .delete-row:hover { color: var(--danger); }
+
+  /* Locations */
+  .loc-grid { display: grid; gap: 8px; }
+  .loc-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+  .loc-name { font-weight: 600; flex: 1; }
+  .loc-badge { font-size: 11px; color: var(--muted); background: var(--bg); border-radius: 4px; padding: 2px 7px; }
+  .loc-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; transition: color 0.15s; }
+  .loc-del:hover { color: var(--danger); }
+  .add-loc-panel { display: none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .add-loc-panel.visible { display: block; }
+  .dist-inputs { display: grid; gap: 8px; margin-top: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
+  .dist-row { display: grid; grid-template-columns: 1fr 100px; gap: 8px; align-items: center; }
+  .dist-row label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); margin: 0; }
+  .dist-row input { padding: 7px 10px; font-size: 13px; }
+
+  .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; color: var(--danger); font-size: 13px; padding: 10px 14px; margin-top: 12px; display: none; }
+  .error-msg.visible { display: block; }
+  .info-msg { background: var(--accent-soft); border: 1px solid rgba(79,110,247,0.25); border-radius: 8px; color: #a0aeff; font-size: 13px; padding: 10px 14px; margin-bottom: 16px; }
+  .spinner-inline { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div style="margin-bottom:36px; text-align:center;">
+    <div class="logo-row" style="justify-content:center; margin-bottom:8px;">
+      <div class="logo-dot"></div>
+      <span class="logo-label">Umetech</span>
+    </div>
+    <div class="tagline">Mileage Tracker</div>
+  </div>
+
+  <div class="card" style="max-width:400px">
+    <div class="card-title" id="authTitle">Sign In</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="authEmail" placeholder="you@umetech.net" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="authPassword" placeholder="••••••••" />
+    </div>
+    <div class="field" id="nameFieldWrap" style="display:none">
+      <label>Your Name</label>
+      <input type="text" id="authName" placeholder="First name" />
+    </div>
+    <button class="btn-primary" id="authBtn" onclick="handleAuth()">Sign In</button>
+    <div class="error-msg" id="authError"></div>
+  </div>
+  <div class="auth-toggle">
+    <span id="authToggleText">Don't have an account?</span>
+    <a onclick="toggleAuthMode()"> <span id="authToggleLink">Sign up</span></a>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen">
+  <header style="max-width:720px">
+    <div>
+      <div class="logo-row">
+        <div class="logo-dot"></div>
+        <span class="logo-label">Umetech</span>
+      </div>
+      <div class="tagline">Mileage Tracker</div>
+    </div>
+    <div class="user-info">
+      <span id="userNameDisplay"></span>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Settings -->
+  <div class="card" style="max-width:720px; width:100%">
+    <div class="card-title">Settings</div>
+    <div class="row-2">
+      <div class="field"><label>Employee Name</label><input type="text" id="empName" placeholder="Your name" /></div>
+      <div class="field"><label>Rate per Mile</label><input type="number" id="rateInput" value="0.725" step="0.001" readonly style="opacity:0.6;cursor:not-allowed" /></div>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card" style="max-width:720px; width:100%">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('lookup')">Distance Lookup</button>
+      <button class="tab" onclick="switchTab('locations')">Manage Locations</button>
+    </div>
+
+    <!-- Lookup tab -->
+    <div class="tab-panel active" id="tab-lookup">
+      <div class="field"><label>Date</label><input type="date" id="tripDate" /></div>
+      <div class="field">
+        <label>Starting Location</label>
+        <select id="startSelect"></select>
+      </div>
+      <div class="swap-btn"><button onclick="swapLocations()">⇅</button></div>
+      <div class="field">
+        <label>Destination</label>
+        <select id="destSelect"></select>
+      </div>
+      <div class="field"><label>Item / Notes (optional)</label><input type="text" id="itemNote" placeholder="e.g. Server setup, on-site support" /></div>
+
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; margin-top:4px;">
+        <input type="checkbox" id="manualToggle" onchange="toggleManual()" style="width:auto; margin:0; cursor:pointer; accent-color:var(--accent);" />
+        <label for="manualToggle" style="text-transform:none; letter-spacing:0; font-size:13px; color:var(--muted); margin:0; cursor:pointer;">Enter miles manually (one-off trip)</label>
+      </div>
+      <div id="manualMilesWrap" style="display:none; margin-bottom:12px;">
+        <label>Miles (one way)</label>
+        <input type="number" id="manualMiles" placeholder="e.g. 38" min="0" step="0.1" />
+      </div>
+
+      <button class="btn-primary" id="lookupBtn" onclick="lookupDistance()">Get Distance</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- Locations tab -->
+    <div class="tab-panel" id="tab-locations">
+      <div class="info-msg">Locations are shared across all users. Changes here affect everyone.</div>
+      <div class="loc-grid" id="locGrid"></div>
+      <button class="btn-primary" style="margin-top:16px" onclick="toggleAddPanel()">+ Add New Location</button>
+      <div class="add-loc-panel" id="addLocPanel">
+        <div class="field"><label>Location Name</label><input type="text" id="newLocName" placeholder="e.g. Anza Valley Hardware" /></div>
+        <label style="font-size:12px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:8px; display:block">Miles from each existing location (one way)</label>
+        <div class="dist-inputs" id="distInputs"></div>
+        <button class="btn-primary" style="margin-top:16px" onclick="saveNewLocation()">Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard" style="max-width:720px; width:100%">
+    <div class="card-title">Result</div>
+    <div class="result-route" id="resultRoute"></div>
+    <div class="result-grid">
+      <div class="result-item"><div class="result-label">Miles</div><div class="result-value" id="resultMiles">—</div></div>
+      <div class="result-item"><div class="result-label">Reimbursement</div><div class="result-value green" id="resultReimb">—</div></div>
+    </div>
+    <button class="add-btn" onclick="addToLog()">+ Add to Log</button>
+  </div>
+
+  <!-- Trip Log -->
+  <div class="card" style="max-width:720px; width:100%">
+    <div class="card-title">Trip Log</div>
+    <div class="log-table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>From</th><th>To</th><th>Item</th><th>Miles</th><th>Reimb.</th><th></th></tr></thead>
+        <tbody id="logBody"><tr><td colspan="7" class="empty-log">No trips logged yet.</td></tr></tbody>
+      </table>
+    </div>
+    <div id="totalsRow" style="display:none"></div>
+    <div class="log-actions">
+      <button class="btn-secondary" onclick="copyLog()">Copy as Text</button>
+      <button class="btn-secondary" onclick="exportXLSX()">Export Excel</button>
+      <button class="btn-danger" onclick="clearLog()">Clear Log</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://whyfcjfdljlnttekiigr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_46RdrKswoWGpN6NZ_gaDPA_Tw76PQ3Q';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEFAULT_LOCATIONS = ['Office','Gosch','LHMWD','FCP','Window Visions','MSW','KIP','BSMWC','Tourmaline','Lake Hemet'];
+const DEFAULT_DISTANCES = {
+  'Office':        {'Gosch':2,'LHMWD':33,'FCP':41,'Window Visions':46,'MSW':6,'KIP':5,'BSMWC':35,'Tourmaline':3,'Lake Hemet':33},
+  'Gosch':         {'Office':2,'LHMWD':34,'FCP':42,'Window Visions':45,'MSW':7,'KIP':6,'BSMWC':36,'Tourmaline':4,'Lake Hemet':34},
+  'LHMWD':         {'Office':33,'Gosch':34,'FCP':25,'Window Visions':54,'MSW':37,'KIP':30,'BSMWC':28,'Tourmaline':35,'Lake Hemet':5},
+  'FCP':           {'Office':41,'Gosch':42,'LHMWD':25,'Window Visions':62,'MSW':45,'KIP':38,'BSMWC':20,'Tourmaline':43,'Lake Hemet':22},
+  'Window Visions':{'Office':46,'Gosch':45,'LHMWD':54,'FCP':62,'MSW':48,'KIP':47,'BSMWC':58,'Tourmaline':44,'Lake Hemet':55},
+  'MSW':           {'Office':6,'Gosch':7,'LHMWD':37,'FCP':45,'Window Visions':48,'KIP':8,'BSMWC':39,'Tourmaline':7,'Lake Hemet':37},
+  'KIP':           {'Office':5,'Gosch':6,'LHMWD':30,'FCP':38,'Window Visions':47,'MSW':8,'BSMWC':32,'Tourmaline':6,'Lake Hemet':31},
+  'BSMWC':         {'Office':35,'Gosch':36,'LHMWD':28,'FCP':20,'Window Visions':58,'MSW':39,'KIP':32,'Tourmaline':37,'Lake Hemet':27},
+  'Tourmaline':    {'Office':3,'Gosch':4,'LHMWD':35,'FCP':43,'Window Visions':44,'MSW':7,'KIP':6,'BSMWC':37,'Lake Hemet':35},
+  'Lake Hemet':    {'Office':33,'Gosch':34,'LHMWD':5,'FCP':22,'Window Visions':55,'MSW':37,'KIP':31,'BSMWC':27,'Tourmaline':35},
+};
+
+let currentUser = null;
+let locData = { names: [], distances: {} };
+let tripLog = [];
+let lastResult = null;
+let isSignUp = false;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
+function toggleAuthMode() {
+  isSignUp = !isSignUp;
+  document.getElementById('authTitle').textContent = isSignUp ? 'Create Account' : 'Sign In';
+  document.getElementById('authBtn').textContent = isSignUp ? 'Create Account' : 'Sign In';
+  document.getElementById('authToggleText').textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
+  document.getElementById('authToggleLink').textContent = isSignUp ? 'Sign in' : 'Sign up';
+  document.getElementById('nameFieldWrap').style.display = isSignUp ? 'block' : 'none';
+  document.getElementById('authError').classList.remove('visible');
+}
+
+async function handleAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const name = document.getElementById('authName').value.trim();
+  const errEl = document.getElementById('authError');
+  const btn = document.getElementById('authBtn');
+  errEl.classList.remove('visible');
+
+  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.classList.add('visible'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span>' + (isSignUp ? 'Creating account...' : 'Signing in...');
+
+  let result;
+  if (isSignUp) {
+    result = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+  } else {
+    result = await sb.auth.signInWithPassword({ email, password });
+  }
+
+  btn.disabled = false;
+  btn.textContent = isSignUp ? 'Create Account' : 'Sign In';
+
+  if (result.error) {
+    errEl.textContent = result.error.message;
+    errEl.classList.add('visible');
+    return;
+  }
+
+  if (isSignUp && !result.data.session) {
+    errEl.style.background = 'rgba(34,197,94,0.1)';
+    errEl.style.borderColor = 'rgba(34,197,94,0.3)';
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+    errEl.classList.add('visible');
+    return;
+  }
+
+  await onSignIn(result.data.user);
+}
+
+async function onSignIn(user) {
+  currentUser = user;
+  const name = user.user_metadata?.full_name || user.email.split('@')[0];
+  document.getElementById('userNameDisplay').textContent = name;
+  document.getElementById('empName').value = name;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  document.getElementById('tripDate').valueAsDate = new Date();
+  await loadLocations();
+  await loadTrips();
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  currentUser = null;
+  tripLog = [];
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+// Check session on load
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) onSignIn(data.session.user);
+});
+
+// ── LOCATIONS ─────────────────────────────────────────────────────────────
+async function loadLocations() {
+  const { data, error } = await sb.from('locations').select('*');
+  if (error || !data || data.length === 0) {
+    // Seed defaults
+    locData = { names: [...DEFAULT_LOCATIONS], distances: {} };
+    DEFAULT_LOCATIONS.forEach(a => {
+      locData.distances[a] = {};
+      DEFAULT_LOCATIONS.forEach(b => {
+        if (a !== b && DEFAULT_DISTANCES[a]?.[b] !== undefined)
+          locData.distances[a][b] = DEFAULT_DISTANCES[a][b];
+      });
+    });
+    await saveLocationsToDb();
+  } else {
+    locData = { names: data.map(r => r.name), distances: {} };
+    data.forEach(r => { locData.distances[r.name] = r.distances || {}; });
+  }
+  renderSelects();
+  renderLocGrid();
+}
+
+async function saveLocationsToDb() {
+  // Upsert all locations
+  const rows = locData.names.map(name => ({ name, distances: locData.distances[name] || {} }));
+  await sb.from('locations').upsert(rows, { onConflict: 'name' });
+}
+
+// ── TRIPS ─────────────────────────────────────────────────────────────────
+async function loadTrips() {
+  const { data, error } = await sb.from('trips').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
+  if (error) { console.error(error); return; }
+  tripLog = (data || []).map(r => ({
+    id: r.id, date: r.date, from: r.from_location, to: r.to_location,
+    item: r.item, miles: r.miles, reimb: r.reimb,
+  }));
+  renderLog();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['lookup','locations'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── SELECTS ───────────────────────────────────────────────────────────────
+function renderSelects() {
+  ['startSelect','destSelect'].forEach((id, idx) => {
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = locData.names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (locData.names.includes(prev)) sel.value = prev;
+    else sel.value = locData.names[idx === 1 && locData.names.length > 1 ? 1 : 0];
+  });
+}
+
+function swapLocations() {
+  const ss = document.getElementById('startSelect');
+  const ds = document.getElementById('destSelect');
+  [ss.value, ds.value] = [ds.value, ss.value];
+}
+
+function toggleManual() {
+  const isManual = document.getElementById('manualToggle').checked;
+  document.getElementById('manualMilesWrap').style.display = isManual ? 'block' : 'none';
+  document.getElementById('lookupBtn').textContent = isManual ? 'Add to Log' : 'Get Distance';
+}
+
+// ── LOOKUP ────────────────────────────────────────────────────────────────
+function lookupDistance() {
+  const errEl = document.getElementById('errorMsg');
+  errEl.classList.remove('visible');
+  const from = document.getElementById('startSelect').value;
+  const to   = document.getElementById('destSelect').value;
+  const isManual = document.getElementById('manualToggle').checked;
+  if (from === to) { errEl.textContent = 'Start and destination are the same.'; errEl.classList.add('visible'); return; }
+  const rate = 0.725;
+  let miles;
+  if (isManual) {
+    miles = parseFloat(document.getElementById('manualMiles').value);
+    if (isNaN(miles) || miles <= 0) { errEl.textContent = 'Please enter a valid mileage.'; errEl.classList.add('visible'); return; }
+  } else {
+    miles = locData.distances[from]?.[to] ?? locData.distances[to]?.[from] ?? null;
+    if (miles === null) {
+      errEl.textContent = 'No distance saved between "' + from + '" and "' + to + '". Add it in Manage Locations, or check "Enter miles manually".';
+      errEl.classList.add('visible'); return;
+    }
+  }
+  const reimb = miles * rate;
+  lastResult = { date: document.getElementById('tripDate').value, from, to, item: document.getElementById('itemNote').value.trim(), miles, reimb };
+  document.getElementById('resultMiles').textContent = miles.toFixed(1);
+  document.getElementById('resultReimb').textContent = '$' + reimb.toFixed(2);
+  document.getElementById('resultRoute').innerHTML =
+    '<span class="route-point">' + from + '</span><span class="route-arrow">→</span><span class="route-point">' + to + '</span>' +
+    (isManual ? '<span style="margin-left:8px;color:var(--muted);font-size:12px">manual entry</span>' : '');
+  if (isManual) {
+    addToLog();
+    document.getElementById('manualMiles').value = '';
+  } else {
+    const rc = document.getElementById('resultCard');
+    rc.classList.add('visible');
+    rc.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+}
+
+async function addToLog() {
+  if (!lastResult) return;
+  const { data, error } = await sb.from('trips').insert([{
+    user_id: currentUser.id,
+    date: lastResult.date,
+    from_location: lastResult.from,
+    to_location: lastResult.to,
+    item: lastResult.item,
+    miles: lastResult.miles,
+    reimb: lastResult.reimb,
+  }]).select();
+  if (error) { alert('Error saving trip: ' + error.message); return; }
+  tripLog.push({ ...lastResult, id: data[0].id });
+  renderLog();
+  document.getElementById('resultCard').classList.remove('visible');
+  lastResult = null;
+}
+
+function renderLog() {
+  const tbody = document.getElementById('logBody');
+  const totalsDiv = document.getElementById('totalsRow');
+  if (!tripLog.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-log">No trips logged yet.</td></tr>';
+    totalsDiv.style.display = 'none'; return;
+  }
+  tbody.innerHTML = tripLog.map((r,i) => `
+    <tr>
+      <td>${r.date||'—'}</td><td>${r.from}</td><td>${r.to}</td>
+      <td style="color:var(--muted)">${r.item||'—'}</td>
+      <td class="mono">${r.miles.toFixed(1)}</td>
+      <td class="green">$${r.reimb.toFixed(2)}</td>
+      <td><button class="delete-row" onclick="deleteRow(${i})">×</button></td>
+    </tr>`).join('');
+  const totalMiles = tripLog.reduce((s,r)=>s+r.miles,0);
+  const totalReimb = tripLog.reduce((s,r)=>s+r.reimb,0);
+  totalsDiv.style.display = 'block';
+  totalsDiv.innerHTML = `<div class="totals-row"><span>${tripLog.length} trip${tripLog.length!==1?'s':''}</span><strong>${totalMiles.toFixed(1)} mi</strong><strong class="total-reimb">$${totalReimb.toFixed(2)}</strong></div>`;
+}
+
+async function deleteRow(i) {
+  const row = tripLog[i];
+  if (!row) return;
+  await sb.from('trips').delete().eq('id', row.id);
+  tripLog.splice(i, 1);
+  renderLog();
+}
+
+async function clearLog() {
+  if (!confirm('Clear all your logged trips?')) return;
+  await sb.from('trips').delete().eq('user_id', currentUser.id);
+  tripLog = [];
+  renderLog();
+}
+
+function copyLog() {
+  if (!tripLog.length) { alert('No trips to copy.'); return; }
+  const name = document.getElementById('empName').value || '';
+  const lines = tripLog.map(r=>`${r.date||''}  ${r.from.padEnd(18)} → ${r.to.padEnd(18)} ${r.miles.toFixed(1).padStart(5)} mi  $${r.reimb.toFixed(2)}`);
+  const totalMiles = tripLog.reduce((s,r)=>s+r.miles,0);
+  const totalReimb = tripLog.reduce((s,r)=>s+r.reimb,0);
+  const text = `Mileage Log — ${name}\n${'─'.repeat(60)}\n${lines.join('\n')}\n${'─'.repeat(60)}\nTotal: ${totalMiles.toFixed(1)} mi  $${totalReimb.toFixed(2)}`;
+  navigator.clipboard.writeText(text).then(()=>alert('Copied!'));
+}
+
+function exportXLSX() {
+  if (!tripLog.length) { alert('No trips to export.'); return; }
+  const empName = document.getElementById('empName').value || '';
+  const rate = 0.725;
+  const totalMiles = tripLog.reduce((s,r)=>s+r.miles,0);
+  const totalReimb = tripLog.reduce((s,r)=>s+r.reimb,0);
+  const today = new Date().toLocaleDateString('en-US');
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Umetech Mileage Tracker';
+  const ws = wb.addWorksheet('Mileage Log');
+  ws.columns = [{width:14},{width:24},{width:24},{width:30},{width:12},{width:16}];
+  const DARK_BLUE='1F3864', MID_BLUE='2E75B6', LIGHT_BLUE='DEEAF1', GREEN_BG='E2EFDA', GREEN_FG='375623';
+  function hdr(text,fg,sz=13){
+    const r=ws.addRow([text]);
+    ws.mergeCells(r.number,1,r.number,6);
+    const c=r.getCell(1);
+    c.value=text; c.font={bold:true,size:sz,color:{argb:'FFFFFFFF'},name:'Arial'};
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+fg}};
+    c.alignment={horizontal:'center',vertical:'middle'};
+    r.height=sz===13?26:20;
+  }
+  hdr('Mileage Log and Reimbursement Form',DARK_BLUE,14);
+  hdr('Umetech, Inc.',MID_BLUE,11);
+  ws.addRow([]);
+  function infoRow(l1,v1,l2,v2){
+    const r=ws.addRow([l1,v1,'',l2,v2,'']); r.height=18;
+    [1,4].forEach(ci=>{const c=r.getCell(ci);c.font={bold:true,size:10,color:{argb:'FF'+DARK_BLUE},name:'Arial'};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+LIGHT_BLUE}};c.alignment={horizontal:'left',vertical:'middle'};});
+    [2,5].forEach(ci=>{const c=r.getCell(ci);c.font={size:10,name:'Arial'};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+LIGHT_BLUE}};c.alignment={horizontal:'left',vertical:'middle'};});
+    [3,6].forEach(ci=>{r.getCell(ci).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+LIGHT_BLUE}};});
+  }
+  infoRow('Employee Name',empName,'Rate Per Mile','$'+rate.toFixed(3));
+  infoRow('Date Exported',today,'Total Mileage',totalMiles.toFixed(1)+' mi');
+  infoRow('','','Total Reimbursement','$'+totalReimb.toFixed(2));
+  ws.addRow([]);
+  const hr=ws.addRow(['Date','Starting Location','Destination','Item','Mileage','Reimbursement']);
+  hr.height=20;
+  hr.eachCell(c=>{c.font={bold:true,size:10,color:{argb:'FFFFFFFF'},name:'Arial'};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+DARK_BLUE}};c.alignment={horizontal:c.col>=5?'right':'left',vertical:'middle'};c.border={bottom:{style:'thin',color:{argb:'FF4472C4'}},right:{style:'thin',color:{argb:'FF4472C4'}}};});
+  tripLog.forEach((r,i)=>{
+    const row=ws.addRow([r.date||'',r.from,r.to,r.item||'',r.miles,r.reimb]);
+    row.height=17;
+    const bg=i%2===0?'FFFFFFFF':'FF'+LIGHT_BLUE;
+    row.eachCell({includeEmpty:true},(cell,cn)=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}};cell.font={size:10,name:'Arial'};cell.alignment={horizontal:cn>=5?'right':'left',vertical:'middle'};cell.border={bottom:{style:'thin',color:{argb:'FFD9E1F2'}},right:{style:'thin',color:{argb:'FFD9E1F2'}}};});
+    row.getCell(5).numFmt='0.0'; row.getCell(6).numFmt='"$"#,##0.00';
+  });
+  ws.addRow([]);
+  const tr=ws.addRow(['','','','TOTAL',totalMiles,totalReimb]); tr.height=20;
+  tr.eachCell({includeEmpty:true},(cell,cn)=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+GREEN_BG}};cell.font={bold:true,size:11,color:{argb:'FF'+GREEN_FG},name:'Arial'};cell.border={top:{style:'medium',color:{argb:'FF'+GREEN_FG}},bottom:{style:'medium',color:{argb:'FF'+GREEN_FG}}};if(cn>=4)cell.alignment={horizontal:'right'};});
+  tr.getCell(5).numFmt='0.0'; tr.getCell(6).numFmt='"$"#,##0.00';
+  wb.xlsx.writeBuffer().then(buf=>{
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='Mileage_'+(empName.replace(/\s+/g,'_')||'Log')+'_'+new Date().toISOString().slice(0,10)+'.xlsx'; a.click();
+  });
+}
+
+// ── LOCATIONS MANAGER ─────────────────────────────────────────────────────
+function renderLocGrid() {
+  const grid = document.getElementById('locGrid');
+  grid.innerHTML = locData.names.map((name,idx) => {
+    const connCount = Object.keys(locData.distances[name]||{}).length;
+    const isDefault = DEFAULT_LOCATIONS.includes(name);
+    return `<div class="loc-row">
+      <span class="loc-name">${name}</span>
+      <span class="loc-badge">${connCount} route${connCount!==1?'s':''}</span>
+      ${isDefault?'':` <button class="loc-del" onclick="deleteLocation(${idx})">×</button>`}
+    </div>`;
+  }).join('');
+}
+
+function toggleAddPanel() {
+  const panel = document.getElementById('addLocPanel');
+  const opening = !panel.classList.contains('visible');
+  panel.classList.toggle('visible', opening);
+  if (opening) { document.getElementById('newLocName').value=''; buildDistInputs(); }
+}
+
+function buildDistInputs() {
+  document.getElementById('distInputs').innerHTML = locData.names.map(name =>
+    `<div class="dist-row"><label>${name}</label><input type="number" id="dist_${name.replace(/[\s\-']+/g,'_')}" placeholder="miles" min="0" step="0.1" /></div>`
+  ).join('');
+}
+
+async function saveNewLocation() {
+  const name = document.getElementById('newLocName').value.trim();
+  if (!name) { document.getElementById('newLocName').style.borderColor='var(--danger)'; setTimeout(()=>document.getElementById('newLocName').style.borderColor='',1500); return; }
+  if (locData.names.includes(name)) { alert('That location already exists.'); return; }
+  const newDistances = {};
+  locData.names.forEach(existing => {
+    const input = document.getElementById('dist_'+existing.replace(/[\s\-']+/g,'_'));
+    const val = input ? parseFloat(input.value) : NaN;
+    if (!isNaN(val) && val > 0) newDistances[existing] = val;
+  });
+  locData.names.push(name);
+  locData.distances[name] = newDistances;
+  Object.entries(newDistances).forEach(([existing, miles]) => {
+    if (!locData.distances[existing]) locData.distances[existing] = {};
+    locData.distances[existing][name] = miles;
+  });
+  await saveLocationsToDb();
+  renderSelects();
+  renderLocGrid();
+  document.getElementById('addLocPanel').classList.remove('visible');
+}
+
+async function deleteLocation(idx) {
+  const name = locData.names[idx];
+  if (!name || !confirm('Remove "'+name+'" and all its distances?')) return;
+  locData.names.splice(idx,1);
+  delete locData.distances[name];
+  Object.keys(locData.distances).forEach(k => delete locData.distances[k][name]);
+  await sb.from('locations').delete().eq('name', name);
+  await saveLocationsToDb();
+  renderSelects();
+  renderLocGrid();
+}
+</script>
+</body>
+</html>
