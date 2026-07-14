@@ -93,6 +93,8 @@
   .totals-row strong { font-family: 'JetBrains Mono', monospace; font-size: 15px; }
   .totals-row .total-reimb { color: var(--green); }
   .delete-row { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s; }
+  .edit-row { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s; }
+  .edit-row:hover { color: var(--accent); }
   .delete-row:hover { color: var(--danger); }
 
   /* Locations */
@@ -240,7 +242,7 @@
     <div class="card-title">Trip Log</div>
     <div class="log-table-wrap">
       <table>
-        <thead><tr><th>Date</th><th>From</th><th>To</th><th>Item</th><th>Miles</th><th>Reimb.</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>From</th><th>To</th><th>Item</th><th>Miles</th><th>Reimb.</th><th></th><th></th></tr></thead>
         <tbody id="logBody"><tr><td colspan="7" class="empty-log">No trips logged yet.</td></tr></tbody>
       </table>
     </div>
@@ -483,21 +485,67 @@ function renderLog() {
   const tbody = document.getElementById('logBody');
   const totalsDiv = document.getElementById('totalsRow');
   if (!tripLog.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-log">No trips logged yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-log">No trips logged yet.</td></tr>';
     totalsDiv.style.display = 'none'; return;
   }
   tbody.innerHTML = tripLog.map((r,i) => `
-    <tr>
+    <tr id="row-${i}">
       <td>${r.date||'—'}</td><td>${r.from}</td><td>${r.to}</td>
       <td style="color:var(--muted)">${r.item||'—'}</td>
       <td class="mono">${r.miles.toFixed(1)}</td>
       <td class="green">$${r.reimb.toFixed(2)}</td>
+      <td><button class="edit-row" onclick="editRow(${i})" title="Edit">✎</button></td>
       <td><button class="delete-row" onclick="deleteRow(${i})">×</button></td>
+    </tr>
+    <tr id="edit-row-${i}" style="display:none">
+      <td colspan="8">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 100px 100px;gap:8px;padding:10px;background:var(--surface2);border-radius:8px;margin:2px 0">
+          <input type="date" id="edit-date-${i}" value="${r.date||''}" style="padding:6px 8px;font-size:12px" />
+          <select id="edit-from-${i}" style="padding:6px 8px;font-size:12px">${locData.names.map(n=>`<option value="${n}" ${n===r.from?'selected':''}>${n}</option>`).join('')}</select>
+          <select id="edit-to-${i}" style="padding:6px 8px;font-size:12px">${locData.names.map(n=>`<option value="${n}" ${n===r.to?'selected':''}>${n}</option>`).join('')}</select>
+          <input type="text" id="edit-item-${i}" value="${r.item||''}" placeholder="Notes" style="padding:6px 8px;font-size:12px" />
+          <input type="number" id="edit-miles-${i}" value="${r.miles}" step="0.1" placeholder="Miles" style="padding:6px 8px;font-size:12px" />
+          <div style="display:flex;gap:6px">
+            <button onclick="saveEdit(${i})" style="flex:1;background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px;padding:6px">Save</button>
+            <button onclick="cancelEdit(${i})" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px;padding:6px">Cancel</button>
+          </div>
+        </div>
+      </td>
     </tr>`).join('');
   const totalMiles = tripLog.reduce((s,r)=>s+r.miles,0);
   const totalReimb = tripLog.reduce((s,r)=>s+r.reimb,0);
   totalsDiv.style.display = 'block';
   totalsDiv.innerHTML = `<div class="totals-row"><span>${tripLog.length} trip${tripLog.length!==1?'s':''}</span><strong>${totalMiles.toFixed(1)} mi</strong><strong class="total-reimb">$${totalReimb.toFixed(2)}</strong></div>`;
+}
+
+function editRow(i) {
+  document.getElementById('edit-row-' + i).style.display = 'table-row';
+  document.getElementById('row-' + i).style.opacity = '0.4';
+}
+
+function cancelEdit(i) {
+  document.getElementById('edit-row-' + i).style.display = 'none';
+  document.getElementById('row-' + i).style.opacity = '1';
+}
+
+async function saveEdit(i) {
+  const row = tripLog[i];
+  const date  = document.getElementById('edit-date-' + i).value;
+  const from  = document.getElementById('edit-from-' + i).value;
+  const to    = document.getElementById('edit-to-' + i).value;
+  const item  = document.getElementById('edit-item-' + i).value.trim();
+  const miles = parseFloat(document.getElementById('edit-miles-' + i).value);
+  if (isNaN(miles) || miles <= 0) { alert('Please enter valid miles.'); return; }
+  const reimb = miles * 0.725;
+
+  const { error } = await sb.from('trips').update({
+    date, from_location: from, to_location: to, item, miles, reimb
+  }).eq('id', row.id);
+
+  if (error) { alert('Error saving: ' + error.message); return; }
+
+  tripLog[i] = { ...row, date, from, to, item, miles, reimb };
+  renderLog();
 }
 
 async function deleteRow(i) {
