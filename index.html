@@ -380,9 +380,13 @@ async function loadLocations() {
 }
 
 async function saveLocationsToDb() {
-  // Upsert all locations
+  // Delete all and re-insert to avoid upsert conflict issues
+  await sb.from('locations').delete().neq('name', '');
   const rows = locData.names.map(name => ({ name, distances: locData.distances[name] || {} }));
-  await sb.from('locations').upsert(rows, { onConflict: 'name' });
+  if (rows.length > 0) {
+    const { error } = await sb.from('locations').insert(rows);
+    if (error) console.error('Error saving locations:', error);
+  }
 }
 
 // ── TRIPS ─────────────────────────────────────────────────────────────────
@@ -577,8 +581,9 @@ function exportXLSX() {
   if (!tripLog.length) { alert('No trips to export.'); return; }
   const empName = document.getElementById('empName').value || '';
   const rate = 0.725;
-  const totalMiles = tripLog.reduce((s,r)=>s+r.miles,0);
-  const totalReimb = tripLog.reduce((s,r)=>s+r.reimb,0);
+  const sortedLog = [...tripLog].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  const totalMiles = sortedLog.reduce((s,r)=>s+r.miles,0);
+  const totalReimb = sortedLog.reduce((s,r)=>s+r.reimb,0);
   const today = new Date().toLocaleDateString('en-US');
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Umetech Mileage Tracker';
@@ -610,7 +615,7 @@ function exportXLSX() {
   const hr=ws.addRow(['Date','Starting Location','Destination','Item','Mileage','Reimbursement']);
   hr.height=20;
   hr.eachCell(c=>{c.font={bold:true,size:10,color:{argb:'FFFFFFFF'},name:'Arial'};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+DARK_BLUE}};c.alignment={horizontal:c.col>=5?'right':'left',vertical:'middle'};c.border={bottom:{style:'thin',color:{argb:'FF4472C4'}},right:{style:'thin',color:{argb:'FF4472C4'}}};});
-  tripLog.forEach((r,i)=>{
+  sortedLog.forEach((r,i)=>{
     const row=ws.addRow([r.date||'',r.from,r.to,r.item||'',r.miles,r.reimb]);
     row.height=17;
     const bg=i%2===0?'FFFFFFFF':'FF'+LIGHT_BLUE;
