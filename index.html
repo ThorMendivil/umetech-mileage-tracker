@@ -380,11 +380,9 @@ async function loadLocations() {
 }
 
 async function saveLocationsToDb() {
-  // Delete all and re-insert to avoid upsert conflict issues
-  await sb.from('locations').delete().neq('name', '');
   const rows = locData.names.map(name => ({ name, distances: locData.distances[name] || {} }));
   if (rows.length > 0) {
-    const { error } = await sb.from('locations').insert(rows);
+    const { error } = await sb.from('locations').upsert(rows, { onConflict: 'name' });
     if (error) console.error('Error saving locations:', error);
   }
 }
