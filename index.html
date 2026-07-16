@@ -107,9 +107,9 @@
   .add-loc-panel { display: none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 20px; }
   .add-loc-panel.visible { display: block; }
   .dist-inputs { display: grid; gap: 8px; margin-top: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
-  .dist-row { display: grid; grid-template-columns: 1fr 100px; gap: 8px; align-items: center; }
-  .dist-row label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); margin: 0; }
-  .dist-row input { padding: 7px 10px; font-size: 13px; }
+  .dist-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; }
+  .dist-row label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); margin: 0; flex: 1; }
+  .dist-row input { padding: 7px 10px; font-size: 13px; width: 90px; flex-shrink: 0; }
 
   .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; color: var(--danger); font-size: 13px; padding: 10px 14px; margin-top: 12px; display: none; }
   .error-msg.visible { display: block; }
@@ -640,9 +640,9 @@ function renderLocGrid() {
     const otherNames = locData.names.filter(n => n !== name);
     const distInputs = otherNames.map(other => {
       const existing = locData.distances[name]?.[other] ?? '';
-      return `<div class="dist-row">
-        <label>${other}</label>
-        <input type="number" id="loc-edit-dist-${idx}-${other.replace(/[^a-zA-Z0-9]/g,'_')}" value="${existing}" placeholder="miles" min="0" step="0.1" style="padding:6px 8px;font-size:12px" />
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(46,50,80,0.4)">
+        <span style="font-size:13px;color:var(--text)">${other}</span>
+        <input type="number" id="loc-edit-dist-${idx}-${other.replace(/[^a-zA-Z0-9]/g,'_')}" value="${existing}" placeholder="mi" min="0" step="0.1" style="width:80px;min-width:80px;padding:7px 9px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);text-align:right" />
       </div>`;
     }).join('');
 
