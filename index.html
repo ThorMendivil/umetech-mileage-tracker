@@ -127,7 +127,7 @@
       <div class="logo-dot"></div>
       <span class="logo-label">Umetech</span>
     </div>
-    <div class="tagline">Mileage Tracker</div>
+    <div class="tagline">Mileage Tracker <span style="font-size:11px;color:var(--muted);font-weight:400">v3.0</span></div>
   </div>
 
   <div class="card" style="max-width:400px">
@@ -161,7 +161,7 @@
         <div class="logo-dot"></div>
         <span class="logo-label">Umetech</span>
       </div>
-      <div class="tagline">Mileage Tracker</div>
+      <div class="tagline">Mileage Tracker <span style="font-size:11px;color:var(--muted);font-weight:400">v3.0</span></div>
     </div>
     <div class="user-info">
       <span id="userNameDisplay"></span>
@@ -634,64 +634,117 @@ function exportXLSX() {
 // ── LOCATIONS MANAGER ─────────────────────────────────────────────────────
 function renderLocGrid() {
   const grid = document.getElementById('locGrid');
-  grid.innerHTML = locData.names.map((name, idx) => {
-    const connCount = Object.keys(locData.distances[name]||{}).length;
-    const isDefault = DEFAULT_LOCATIONS.includes(name);
-    const otherNames = locData.names.filter(n => n !== name);
-    const distInputs = otherNames.map(other => {
-      const existing = locData.distances[name]?.[other] ?? '';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid rgba(46,50,80,0.4)">
-        <input type="number" id="loc-edit-dist-${idx}-${other.replace(/[^a-zA-Z0-9]/g,'_')}" value="${existing}" placeholder="miles" min="0" step="0.1" style="width:90px;min-width:90px;padding:8px 10px;font-size:13px;background:#2e3250;border:1px solid #4f6ef7;border-radius:6px;color:#fff;text-align:right;flex-shrink:0" />
-        <span style="font-size:13px;color:var(--text)">${other}</span>
-      </div>`;
-    }).join('');
+  grid.innerHTML = '';
 
-    return `<div class="loc-row" id="loc-row-${idx}">
-      <span class="loc-name">${name}</span>
-      <span class="loc-badge">${connCount} route${connCount!==1?'s':''}</span>
-      <button class="edit-row" onclick="toggleLocEdit(${idx})" title="Edit routes">✎</button>
-      <button class="loc-del" onclick="deleteLocation(${idx})" title="Delete location">×</button>
-    </div>
-    <div id="loc-edit-${idx}" style="display:none;background:var(--surface2);border-radius:8px;padding:14px;margin:-4px 0 8px;border:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Edit distances for ${name}</div>
-      <div class="dist-inputs" style="max-height:200px;overflow-y:auto">${distInputs}</div>
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button onclick="saveLocEdit(${idx},'${name.replace(/'/g,"\'")}')" style="flex:1;background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;font-weight:600;padding:8px">Save</button>
-        <button onclick="toggleLocEdit(${idx})" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:13px;padding:8px 14px">Cancel</button>
-      </div>
-    </div>`;
-  }).join('');
+  locData.names.forEach((name, idx) => {
+    const routes = locData.distances[name] || {};
+    const connCount = Object.keys(routes).length;
+
+    // Location row
+    const row = document.createElement('div');
+    row.className = 'loc-row';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'loc-name';
+    nameSpan.textContent = name;
+
+    const badge = document.createElement('span');
+    badge.className = 'loc-badge';
+    badge.textContent = connCount + ' route' + (connCount !== 1 ? 's' : '');
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-row';
+    editBtn.textContent = '\u270E';
+    editBtn.title = 'Edit routes';
+    editBtn.onclick = () => toggleLocEdit(idx);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'loc-del';
+    delBtn.textContent = '\u00D7';
+    delBtn.title = 'Delete location';
+    delBtn.onclick = () => deleteLocation(idx);
+
+    row.append(nameSpan, badge, editBtn, delBtn);
+    grid.appendChild(row);
+
+    // Edit panel
+    const panel = document.createElement('div');
+    panel.id = 'loc-edit-' + idx;
+    panel.style.cssText = 'display:none;background:var(--surface2);border-radius:8px;padding:16px;margin:-4px 0 8px;border:1px solid var(--border)';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px';
+    title.textContent = 'Routes from ' + name + ' — miles one way';
+    panel.appendChild(title);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'max-height:260px;overflow-y:auto';
+
+    const inputs = {};
+    locData.names.filter(n => n !== name).forEach(other => {
+      const line = document.createElement('div');
+      line.style.cssText = 'display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid rgba(46,50,80,0.4)';
+
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.min = '0';
+      inp.step = '0.1';
+      inp.placeholder = 'miles';
+      const existing = routes[other];
+      if (existing !== undefined) inp.value = existing;
+      inp.style.cssText = 'width:90px;min-width:90px;padding:8px 10px;font-size:13px;background:#2e3250;border:1px solid #4f6ef7;border-radius:6px;color:#fff;text-align:right;flex-shrink:0';
+      inputs[other] = inp;
+
+      const lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:13px;color:var(--text)';
+      lbl.textContent = other;
+
+      line.append(inp, lbl);
+      list.appendChild(line);
+    });
+    panel.appendChild(list);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;margin-top:14px';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Routes';
+    saveBtn.style.cssText = 'flex:1;background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;font-weight:600;padding:9px';
+    saveBtn.onclick = async () => {
+      Object.entries(inputs).forEach(([other, inp]) => {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val > 0) {
+          if (!locData.distances[name]) locData.distances[name] = {};
+          if (!locData.distances[other]) locData.distances[other] = {};
+          locData.distances[name][other] = val;
+          locData.distances[other][name] = val;
+        } else {
+          if (locData.distances[name]) delete locData.distances[name][other];
+          if (locData.distances[other]) delete locData.distances[other][name];
+        }
+      });
+      await saveLocationsToDb();
+      renderLocGrid();
+      renderSelects();
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:13px;padding:9px 16px';
+    cancelBtn.onclick = () => toggleLocEdit(idx);
+
+    btnRow.append(saveBtn, cancelBtn);
+    panel.appendChild(btnRow);
+    grid.appendChild(panel);
+  });
 }
 
 function toggleLocEdit(idx) {
   const panel = document.getElementById('loc-edit-' + idx);
+  if (!panel) return;
   const isOpen = panel.style.display !== 'none';
-  // Close all others first
   document.querySelectorAll('[id^="loc-edit-"]').forEach(el => el.style.display = 'none');
   if (!isOpen) panel.style.display = 'block';
-}
-
-async function saveLocEdit(idx, name) {
-  const otherNames = locData.names.filter(n => n !== name);
-  if (!locData.distances[name]) locData.distances[name] = {};
-
-  otherNames.forEach(other => {
-    const input = document.getElementById('loc-edit-dist-' + idx + '-' + other.replace(/[^a-zA-Z0-9]/g,'_'));
-    const val = input ? parseFloat(input.value) : NaN;
-    if (!isNaN(val) && val > 0) {
-      locData.distances[name][other] = val;
-      if (!locData.distances[other]) locData.distances[other] = {};
-      locData.distances[other][name] = val;
-    } else {
-      // Remove the route if cleared
-      delete locData.distances[name][other];
-      if (locData.distances[other]) delete locData.distances[other][name];
-    }
-  });
-
-  await saveLocationsToDb();
-  renderLocGrid();
-  renderSelects();
 }
 
 function toggleAddPanel() {
