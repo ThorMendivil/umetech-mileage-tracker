@@ -640,9 +640,9 @@ function renderLocGrid() {
     const otherNames = locData.names.filter(n => n !== name);
     const distInputs = otherNames.map(other => {
       const existing = locData.distances[name]?.[other] ?? '';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(46,50,80,0.4)">
+      return `<div style="display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid rgba(46,50,80,0.4)">
+        <input type="number" id="loc-edit-dist-${idx}-${other.replace(/[^a-zA-Z0-9]/g,'_')}" value="${existing}" placeholder="miles" min="0" step="0.1" style="width:90px;min-width:90px;padding:8px 10px;font-size:13px;background:#2e3250;border:1px solid #4f6ef7;border-radius:6px;color:#fff;text-align:right;flex-shrink:0" />
         <span style="font-size:13px;color:var(--text)">${other}</span>
-        <input type="number" id="loc-edit-dist-${idx}-${other.replace(/[^a-zA-Z0-9]/g,'_')}" value="${existing}" placeholder="mi" min="0" step="0.1" style="width:80px;min-width:80px;padding:7px 9px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);text-align:right" />
       </div>`;
     }).join('');
 
@@ -650,7 +650,7 @@ function renderLocGrid() {
       <span class="loc-name">${name}</span>
       <span class="loc-badge">${connCount} route${connCount!==1?'s':''}</span>
       <button class="edit-row" onclick="toggleLocEdit(${idx})" title="Edit routes">✎</button>
-      ${isDefault?'':` <button class="loc-del" onclick="deleteLocation(${idx})">×</button>`}
+      <button class="loc-del" onclick="deleteLocation(${idx})" title="Delete location">×</button>
     </div>
     <div id="loc-edit-${idx}" style="display:none;background:var(--surface2);border-radius:8px;padding:14px;margin:-4px 0 8px;border:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Edit distances for ${name}</div>
@@ -731,7 +731,8 @@ async function saveNewLocation() {
 
 async function deleteLocation(idx) {
   const name = locData.names[idx];
-  if (!name || !confirm('Remove "'+name+'" and all its distances?')) return;
+  if (!name) return;
+  if (!confirm('Are you sure you want to DELETE "'+name+'"?\n\nThis removes the location and ALL its routes for everyone. This cannot be undone.')) return;
   locData.names.splice(idx,1);
   delete locData.distances[name];
   Object.keys(locData.distances).forEach(k => delete locData.distances[k][name]);
